@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Pack-Jet</title>
+    <style>
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        #playarea {
+            width: 100%;
+            height: auto;
+            margin: 0;
+            position: relative;
+        }
+
+        #canvas {
+            width: 100%;
+            height: auto;
+            background: #000;
+            margin: 0;
+        }
+
+        #score {
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 3vw;
+            color: yellow;
+            position: absolute;
+            top: 1vw;
+            left: 3vw;
+            text-shadow: 0.1vw 0.1vw 0.4vw #000000;
+        }
+
+        #prose {
+            font-family: Arial, Helvetica, sans-serif;
+            margin: 1em;
+            position: absolute;
+            font-size: 3vw;
+            top: 0;
+            left: 0;
+            color: white;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="playarea">
+        <canvas id="canvas" width="1280" height="720" background="black"></canvas>
+        <div id="score">0</div>
+    </div>
+    <div id="prose">
+        <h2>Packjet</h2>
+        <p>A Global Game Jam 2019 entry by Javier Arevalo.</p>
+        <p>The theme is <i>"What Home Means to You"</i>. This minigame is of course a riff on Jet Pac by Ultimate, the game
+            that made me decide to become a game developer when I was 13 years old.
+        </p>
+        <p>You can find the project in its Github repo.</p>
+        <p>Press any key to start</p>
+    </div>
+    <a href="https://github.com/TheJare/packjet">https://github.com/TheJare/packjet</a>
+
+    <script>
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
+
+        function randomColor(a) {
+            a = a || 0;
+            let r = Math.floor(Math.random() * (255 - a) + a);
+            let g = Math.floor(Math.random() * (255 - a) + a);
+            let b = Math.floor(Math.random() * (255 - a) + a);
+            return `rgb(${r},${g},${b})`;
+        }
+
+        // Return intersection of 2 rects, or null if they don't intersect
+        function Collide(x0, y0, w0, h0, x1, y1, w1, h1) {
+            if (w0 <= 0 || w1 <= 0 || w0 <= 0 || h0 <= 0) {
+                return null;
+            }
+            let inters = {
+                x: Math.max(x0, x1),
+                y: Math.max(y0, y1),
+            };
+            inters.w = Math.min(x0 + w0, x1 + w1) - inters.x;
+            inters.h = Math.min(y0 + h0, y1 + h1) - inters.y;
+            if (inters.w <= 0 || inters.h <= 0) {
+                return null;
+            }
+            return inters;
+        }
+
+        const scoredomel = document.getElementById("score");
+        const GROUNDH = 20;
+        const PLAYERW = 40;
+        const PLAYERH = 60;
+        const ROCKETW = 60;
+        const ROCKETH = 180;
+        const CELLW = 40;
+        const CELLH = 30;
+        const ENEMYW = 40;
+        const ENEMYH = 40;
+
+        function spawnRocket(){
+            rocket = {
+                x: canvas.width * (Math.random() * 0.7 + 0.1),
+                y: canvas.height - GROUNDH - ROCKETH,
+                fuel: 0,
+            };
+        }
+
+        function spawnCell() {
+            cell = {
+                cd: Math.random() * 5 + 8,
+                x: Math.random() * (canvas.width - CELLW),
+                y: -CELLH,
+                vy: 0,
+            }
+        }
+
+        // Reset all the globals!
+        function Reset() {
+            started = false;
+            lastKeyPress = null;
+            keys = {};
+            mouse = null;
+
+            itemImages = buildItemImages();
+            player = {
+                x: (canvas.width - PLAYERW) / 2, y: 40, vx: 0, vy: 0,
+                score: 0,
+                shotcd: 0,
+                lastv: 1,
+                thrust: false,
+                cell: false
+            };
+            scoredomel.textContent = Math.round(player.score);
+
+            shots = [];
+
+            spawnRocket();
+
+            spawnCell();
+
+            enemy = {
+                timeToShow: 2,
+                pos: 640,
+                health: 3,
+                score: 100,
+                enemies: []
+            };
+
+            const CLRPLATS = "#501";
+            props = [{
+                x: -100,
+                y: canvas.height - GROUNDH,
+                w: canvas.width + 100,
+                h: GROUNDH,
+                color: CLRPLATS
+            }, {
+                x: 240,
+                y: 300,
+                w: 110,
+                h: 30,
+                color: CLRPLATS
+            }, {
+                x: 600,
+                y: 500,
+                w: 120,
+                h: 30,
+                color: CLRPLATS
+            }, {
+                x: 940,
+                y: 350,
+                w: 130,
+                h: 30,
+                color: CLRPLATS
+            }];
+        }
+
+        function drawProps(layer) {
+            for (let a of layer) {
+                ctx.fillStyle = a.color;
+                ctx.fillRect(Math.floor(a.x), a.y, a.w, a.h);
+            }
+        }
+
+        function gameRender(dt) {
+            let gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            gradient.addColorStop(0, '#114');
+            gradient.addColorStop(1, '#33B');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Shots
+            for (let s of shots) {
+                let x = Math.min(s.x + s.w * Math.sign(s.vx), s.x);
+                ctx.fillStyle = randomColor(64);
+                ctx.fillRect(x, s.y, s.w, 2);
+            }
+
+            // Enemies
+            for (let e of enemy.enemies) {
+                ctx.fillStyle = "#F40";
+                ctx.fillRect(e.x, e.y, ENEMYW, ENEMYH);
+            }
+
+            // Rocket
+            ctx.fillStyle = "#555";
+            ctx.fillRect(rocket.x, rocket.y, ROCKETW, ROCKETH * (1 - rocket.fuel));
+            gradient = ctx.createLinearGradient(0, rocket.y + ROCKETH * (1 - rocket.fuel), 0, rocket.y + ROCKETH);
+            gradient.addColorStop(0, '#AFF');
+            gradient.addColorStop(1, '#0FF');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(rocket.x, rocket.y + ROCKETH * (1 - rocket.fuel), ROCKETW, ROCKETH * rocket.fuel);
+
+            // Player
+            ctx.fillStyle = "#0F0";
+            ctx.fillRect(player.x, player.y, PLAYERW, PLAYERH);
+
+            // Cell
+            ctx.fillStyle = "#F0F";
+            ctx.fillRect(cell.x, cell.y, CELLW, CELLH);
+
+            drawProps(props);
+        }
+
+        function playerControl(dt, keys) {
+            if (keys["Escape"]) {
+                return false;
+            }
+            let thrust = keys["q"] || keys["Q"] || keys["w"] || keys["W"] || keys["ArrowUp"];
+            let left = keys["a"] || keys["A"] || keys["o"] || keys["O"] || keys["ArrowLeft"];
+            let right = keys["d"] || keys["D"] || keys["p"] || keys["P"] || keys["ArrowRight"];
+            let shoot = keys[" "] || keys["Control"] || keys["m"] || keys["M"] || keys["s"] || keys["S"];
+            if (mouse != null) {
+                left = (player.x + PLAYERW/2) > mouse.x;
+                right = (player.x + PLAYERW/2) < mouse.x;
+                thrust = (player.y + PLAYERH/2) > mouse.y;
+                shoot = true;
+            }
+            if (thrust) {
+                player.vy = Math.max(player.vy - 30, -600);
+            } else {
+                player.vy += 20;
+            }
+            if (left) {
+                if (player.vx > 0) {
+                    player.vx = player.vx * 0.9;
+                }
+                player.vx = Math.max(player.vx - 10, -800);
+                player.lastv = -1;
+            }
+            if (right) {
+                if (player.vx < 0) {
+                    player.vx = player.vx * 0.9;
+                }
+                player.vx = Math.min(player.vx + 10, 800);
+                player.lastv = 1;
+            }
+            if (!(left || right)) {
+                player.vx = player.vx * 0.9;
+            }
+            player.thrust = thrust;
+
+            if (player.shotcd > 0) {
+                player.shotcd -= dt;
+            } else {
+                if (shoot) {
+                    player.shotcd = 0.05;
+                    let shot = {
+                        x: player.x + 40 / 2,
+                        y: player.y + 60 / 2 + (Math.random() * 4 - 2),
+                        vx: player.lastv,
+                        w: 0,
+                        time: 0,
+                    }
+                    shots.push(shot);
+                }
+            }
+            return true;
+        }
+
+        function gameUpdate(dt) {
+            let prevscore = player.score;
+
+            // Enemy spawn
+            enemy.timeToShow -= dt;            
+            if (enemy.timeToShow <= 0) {
+                enemy.timeToShow = 2;
+                let side = Math.random() > 0.5;
+                let e = {
+                    x: side? canvas.width : -ENEMYW,
+                    y: (Math.random()*0.8+0.1)*(canvas.height - ENEMYH - GROUNDH),
+                    vy: (Math.random()*2-1)*200,
+                    vx: side? -200:200,
+                    health: enemy.health,
+                    score: enemy.score,
+                };
+                enemy.enemies.push(e);
+                enemy.score += 30;
+                enemy.health += 3;
+            }
+
+            // Enemies
+            for (let i = 0; i < enemy.enemies.length; i++) {
+                let e = enemy.enemies[i];
+                e.x += dt*e.vx;
+                e.y += dt*e.vy;
+                if (e.x >= canvas.width) {
+                    e.x = -ENEMYW;
+                } else if (e.x <= -ENEMYW) {
+                    e.x = -ENEMYW;
+                }
+                if (e.vy > 0 && e.y >= canvas.height - GROUNDH - ENEMYH) {
+                    e.vy = -e.vy;
+                    e.y += dt*e.vy;
+                } else if (e.vy < 0 && e.y <= 0) {
+                    e.vy = -e.vy;
+                    e.y += dt*e.vy;
+                }
+                for (let s of shots) {
+                    let x = Math.min(s.x + s.w * Math.sign(s.vx), s.x);
+                    if (Collide(e.x, e.y, ENEMYW, ENEMYH, x, s.y, s.w, 1) !== null) {
+                        s.time = -1;
+                        e.health -= 5;
+                    }
+                }
+                if (e.health <= 0) {
+                    enemy.enemies.splice(i, 1);
+                    i--;
+                    player.score += e.score;
+                }
+            }
+
+
+            // Fuel cell
+            if (cell.cd > 0) {
+                cell.cd -= dt;
+            } else {
+                let prevy = cell.y;
+                if (player.cell) {
+                    cell.x = player.x - CELLW / 4;
+                    cell.y = player.y + PLAYERH - CELLH / 2;
+                } else {
+                    cell.vy += 10;
+                    cell.y += dt * cell.vy;
+                    for (let p of props) {
+                        let coll = Collide(cell.x, prevy, CELLW, cell.y + CELLH - prevy, p.x, p.y, p.w, p.h);
+                        if (coll !== null) {
+                            cell.y = coll.y - CELLH;
+                            cell.vy = 0;
+                        }
+                    }
+                }
+
+                if (Collide(cell.x, prevy, CELLW, cell.y + CELLH - prevy, rocket.x, rocket.y, ROCKETW, ROCKETH) !== null) {
+                    spawnCell();
+                    player.cell = false;
+                    rocket.fuel = Math.min(rocket.fuel + 0.26, 1);
+                    if (rocket.fuel >= 1) {
+                        for (let e of enemy.enemies) {
+                            player.score += e.score;
+                        }
+                        enemy.enemies = [];
+                        spawnRocket();
+                    }
+                }
+            }
+
+
+            // Player
+            let prevy = player.y;
+            player.x += dt * player.vx;
+            player.y += dt * player.vy;
+            if (player.x > canvas.width) {
+                player.x = -PLAYERW;
+            } else if (player.x < -PLAYERW) {
+                player.x = canvas.width;
+            }
+            if (player.y < 0) {
+                player.y = 0;
+                player.vy = 0;
+            }
+            if (!player.thrust) {
+                for (let p of props) {
+                    // Collide player feet against the platforms
+                    let coll = Collide(player.x, prevy + PLAYERH, PLAYERW, player.y - prevy+1, p.x, p.y, p.w, 1);
+                    if (coll !== null) {
+                        player.y = p.y - PLAYERH;
+                        player.vy = 0;
+                    }
+                }
+            }
+            if (cell.cd <= 0 && !player.cell) {
+                if (Collide(player.x, player.y, PLAYERW, PLAYERH, cell.x, cell.y, CELLW, CELLH) !== null) {
+                    player.cell = true;
+                }
+            }
+            for (let e of enemy.enemies) {
+                if (Collide(player.x, player.y, PLAYERW, PLAYERH, e.x, e.y, ENEMYW, ENEMYH) !== null) {
+                    return false;
+                }
+            }
+
+            // Shots
+            for (let i = 0; i < shots.length; i++) {
+                let s = shots[i];
+                if (s.time < 0) {
+                    shots.splice(i, 1);
+                    i--;
+                    continue;
+                }
+                s.time += dt;
+                s.vx *= 1.04;
+                let w = s.time * s.time * canvas.width / 2;
+                s.w = w;
+                s.x += s.vx * canvas.width / 6 * dt;
+                if (s.x > canvas.width || s.x + w < 0) {
+                    shots.splice(i, 1);
+                    i--;
+                }
+            }
+            if (prevscore != player.score) {
+                scoredomel.textContent = Math.round(player.score);
+            }
+            return true;
+        }
+
+        function buildItemImages() {
+            const c = document.createElement("canvas");
+            c.width = 64;
+            c.height = 64;
+            const ctx = c.getContext("2d");
+            let images = [c.toDataURL()];
+            for (let i = 0; i < 10; i++) {
+                ctx.clearRect(0, 0, 64, 64);
+                for (let j = 0; j < 7; j++) {
+                    let c = randomColor();
+                    ctx.fillStyle = c;
+                    let x = Math.floor(Math.random() * 64);
+                    let y = Math.floor(Math.random() * 64);
+                    let w = Math.floor(Math.random() * 25 + 10);
+                    let h = Math.floor(Math.random() * 25 + 10);
+                    ctx.fillRect(x, y, w, h);
+                    ctx.fillRect((64 - x - w), y, w, h);
+                }
+                images.push(c.toDataURL());
+            }
+            return images;
+        }
+
+
+        function myKeyDown(e) {
+            var keynum = event.key || event.keyCode;
+            // let c = String.fromCharCode(keynum);
+            // console.log("keydown " + keynum);
+            keys[keynum] = true;
+            lastKeyPress = keynum;
+        }
+
+        function myKeyUp(e) {
+            var keynum = event.key || event.keyCode;
+            keys[keynum] = false;
+        }
+
+        function myMouseDown(e) {
+            let r = canvas.getClientRects()[0];
+            mouse = {
+                x: (e.clientX - r.left)*canvas.width/canvas.clientWidth,
+                y: (e.clientY - r.top)*canvas.height/canvas.clientHeight,
+            };
+            console.log(e, mouse);
+            lastKeyPress = "mouse";
+            if (e.stopPropagation) {
+                e.stopPropagation();
+                e.cancelBubble = true;
+            }
+        }
+        function myMouseMove(e) {
+            if (mouse != null) {
+                myMouseDown(e);
+            }
+        }
+
+        function myMouseUp(e) {
+            mouse = null;
+        }
+
+        document.addEventListener("keydown", myKeyDown, {
+            capture: true,
+            passive: true,
+        });
+        document.addEventListener("keyup", myKeyUp, {
+            capture: true,
+            passive: true,
+        });
+
+        document.addEventListener("mousedown", myMouseDown, {
+            capture: true,
+            passive: true,
+        });
+        document.addEventListener("mouseup", myMouseUp, {
+            capture: true,
+            passive: true,
+        });
+        // document.addEventListener("mouseout", myMouseUp, {
+        //     capture: true,
+        //     passive: true,
+        // });
+        document.addEventListener("mousemove", myMouseMove, {
+            capture: true,
+            passive: true,
+        });
+
+        document.addEventListener("touchstart", (e) => myMouseDown(e.touches[0]), {
+            capture: true,
+            passive: true,
+        });
+        document.addEventListener("touchend", myMouseUp, {
+            capture: true,
+            passive: true,
+        });
+        document.addEventListener("touchcancel", myMouseUp, {
+            capture: true,
+            passive: true,
+        });
+        document.addEventListener("touchmove", (e) => myMouseDown(e.touches[0]), {
+            capture: true,
+            passive: true,
+        });
+
+        function tick() {
+            if (!started) {
+                if (lastKeyPress) {
+                    document.getElementById("prose").style.display = "none";
+                    Reset();
+                    started = true;
+                }
+            }
+            let dt = 0.016;
+            if (started) {
+                started = playerControl(dt, keys);
+            }
+            if (started) {
+                started = gameUpdate(dt);
+            }
+            if (started) {
+                gameRender(dt);
+            }
+            if (!started) {
+                document.getElementById("prose").style.display = null;
+                mouse = null;
+            }
+            requestAnimationFrame(tick);
+            lastKeyPress = null;
+        }
+        Reset();
+        tick();
+    </script>
+</body>
+
+</html>
