@@ -50,6 +50,7 @@
             top: 0;
             left: 0;
             color: white;
+            text-shadow: 2px 2px #000;
         }
     </style>
 </head>
@@ -62,7 +63,8 @@
     <div id="prose">
         <h2>Packjet</h2>
         <p>A Global Game Jam 2019 entry by Javier Arevalo.</p>
-        <p>The theme is <i>"What Home Means to You"</i>. This minigame is of course a riff on Jet Pac by Ultimate, the game
+        <p>The theme is <i>"What Home Means to You"</i>. This minigame is of course a riff
+            on the classic <b>Jet Pac</b> by Ultimate, the game
             that made me decide to become a game developer when I was 13 years old.
         </p>
         <p>You can find the project in its Github repo.</p>
@@ -391,7 +393,7 @@
                 player.y = 0;
                 player.vy = 0;
             }
-            if (!player.thrust) {
+            if (player.vy > 0) {
                 for (let p of props) {
                     // Collide player feet against the platforms
                     let coll = Collide(player.x, prevy + PLAYERH, PLAYERW, player.y - prevy+1, p.x, p.y, p.w, 1);
