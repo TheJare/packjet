@@ -16,6 +16,7 @@
             margin: 0;
             padding: 0;
             user-select: none;
+            touch-action: none;
         }
 
         #playarea {
@@ -486,11 +487,14 @@
                 x: (e.clientX - r.left)*canvas.width/canvas.clientWidth,
                 y: (e.clientY - r.top)*canvas.height/canvas.clientHeight,
             };
-            console.log(e, mouse);
+            // console.log(e, mouse);
             lastKeyPress = "mouse";
             if (e.stopPropagation) {
                 e.stopPropagation();
                 e.cancelBubble = true;
+            }
+            if (e.preventDefault) {
+                e.preventDefault();
             }
         }
         function myMouseMove(e) {
@@ -514,7 +518,7 @@
 
         document.addEventListener("mousedown", myMouseDown, {
             capture: true,
-            passive: true,
+            passive: false,
         });
         document.addEventListener("mouseup", myMouseUp, {
             capture: true,
@@ -526,12 +530,12 @@
         // });
         document.addEventListener("mousemove", myMouseMove, {
             capture: true,
-            passive: true,
+            passive: false,
         });
 
-        document.addEventListener("touchstart", (e) => myMouseDown(e.touches[0]), {
+        document.addEventListener("touchstart", (e) => { myMouseDown(e.touches[0]); e.preventDefault(); }, {
             capture: true,
-            passive: true,
+            passive: false,
         });
         document.addEventListener("touchend", myMouseUp, {
             capture: true,
@@ -541,9 +545,9 @@
             capture: true,
             passive: true,
         });
-        document.addEventListener("touchmove", (e) => myMouseMove(e.touches[0]), {
+        document.addEventListener("touchmove", (e) => { myMouseMove(e.touches[0]); e.preventDefault(); }, {
             capture: true,
-            passive: true,
+            passive: false,
         });
 
         function tick() {
