@@ -6,6 +6,8 @@ The theme is *"What Home Means to You"*. This minigame is of course a riff on
 the classic [Jet Pac by Ultimate](https://en.wikipedia.org/wiki/Jetpac), the
 game that made me decide to become a game developer when I was 13 years old.
 
+[Play Packjet](http://iguanademos.com/Jare/games/packjet/)
+
 ## MIT License
 
 Copyright (c) 2019 Francisco Javier Arévalo Baeza
