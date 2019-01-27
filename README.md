@@ -1,6 +1,6 @@
 # Packjet
 
-Mini Global Game Jam 2019 entry by Javier Arevalo.
+A mini Global Game Jam 2019 entry by Javier Arevalo.
 
 The theme is *"What Home Means to You"*. This minigame is of course a riff on
 the classic [https://en.wikipedia.org/wiki/Jetpac](Jet Pac by Ultimate),

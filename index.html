@@ -52,23 +52,28 @@
             color: white;
             text-shadow: 2px 2px #000;
         }
+
+        #prose h2 {
+            text-align: center;
+        }
     </style>
 </head>
 
 <body>
     <div id="playarea">
-        <canvas id="canvas" width="1280" height="720" background="black"></canvas>
-        <div id="score">0</div>
+        <canvas id="canvas" width="1280" height="640" background="black"></canvas>
+        <div id="score"></div>
     </div>
     <div id="prose">
         <h2>Packjet</h2>
-        <p>A Global Game Jam 2019 entry by Javier Arevalo.</p>
+        <p>A mini Global Game Jam 2019 entry by Javier Arevalo.</p>
         <p>The theme is <i>"What Home Means to You"</i>. This minigame is of course a riff
             on the classic <b>Jet Pac</b> by Ultimate, the game
             that made me decide to become a game developer when I was 13 years old.
         </p>
-        <p>You can find the project in its Github repo.</p>
-        <p>Press any key to start</p>
+        <p>Use OPQ, WAD or arrows to move, Space or Ctrl to shoot.
+            Mouse/touch also supported.</p>
+        <p>Click or press any key to start</p>
     </div>
     <a href="https://github.com/TheJare/packjet">https://github.com/TheJare/packjet</a>
 
@@ -170,19 +175,19 @@
                 color: CLRPLATS
             }, {
                 x: 240,
-                y: 300,
+                y: 200,
                 w: 110,
                 h: 30,
                 color: CLRPLATS
             }, {
                 x: 600,
-                y: 500,
+                y: 400,
                 w: 120,
                 h: 30,
                 color: CLRPLATS
             }, {
                 x: 940,
-                y: 350,
+                y: 250,
                 w: 130,
                 h: 30,
                 color: CLRPLATS
