@@ -3,8 +3,8 @@
 A mini Global Game Jam 2019 entry by Javier Arevalo.
 
 The theme is *"What Home Means to You"*. This minigame is of course a riff on
-the classic [https://en.wikipedia.org/wiki/Jetpac](Jet Pac by Ultimate),
-the game that made me decide to become a game developer when I was 13 years old.
+the classic [Jet Pac by Ultimate](https://en.wikipedia.org/wiki/Jetpac), the
+game that made me decide to become a game developer when I was 13 years old.
 
 ## MIT License
 
