@@ -3,8 +3,9 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Pack-Jet</title>
     <style>
@@ -118,6 +119,8 @@
         const ENEMYW = 40;
         const ENEMYH = 40;
 
+        const MAX_ENEMIES = 5;
+
         function spawnRocket(){
             rocket = {
                 x: canvas.width * (Math.random() * 0.7 + 0.1),
@@ -135,6 +138,15 @@
             }
         }
 
+        function spawnExplosion(x, y, r) {
+            return {
+                t: 0, 
+                x: x,
+                y: y,
+                r: r || ENEMYW
+            }
+        }
+
         // Reset all the globals!
         function Reset() {
             started = false;
@@ -149,11 +161,13 @@
                 shotcd: 0,
                 lastv: 1,
                 thrust: false,
-                cell: false
+                cell: false,
+                death: 0,
             };
             scoredomel.textContent = Math.round(player.score);
 
             shots = [];
+            explosions = [];
 
             spawnRocket();
 
@@ -224,20 +238,47 @@
 
             // Rocket
             ctx.fillStyle = "#555";
-            ctx.fillRect(rocket.x, rocket.y, ROCKETW, ROCKETH * (1 - rocket.fuel));
-            gradient = ctx.createLinearGradient(0, rocket.y + ROCKETH * (1 - rocket.fuel), 0, rocket.y + ROCKETH);
-            gradient.addColorStop(0, '#AFF');
+            gradient = ctx.createLinearGradient(0, rocket.y, 0, rocket.y + ROCKETH);
+            gradient.addColorStop(0, '#555');
+            gradient.addColorStop(1-rocket.fuel, '#555');
+            gradient.addColorStop(Math.min(1, 1-rocket.fuel+0.01), '#AFF');
             gradient.addColorStop(1, '#0FF');
             ctx.fillStyle = gradient;
-            ctx.fillRect(rocket.x, rocket.y + ROCKETH * (1 - rocket.fuel), ROCKETW, ROCKETH * rocket.fuel);
+            ctx.beginPath();
+            ctx.moveTo(rocket.x, rocket.y+ROCKETH);
+            ctx.lineTo(rocket.x, rocket.y+ROCKETH*0.7);
+            ctx.lineTo(rocket.x+ROCKETW*0.2, rocket.y+ROCKETH*0.68);
+            ctx.lineTo(rocket.x+ROCKETW*0.3, rocket.y+ROCKETH*0.1);
+            ctx.lineTo(rocket.x+ROCKETW*0.5, rocket.y);
+            ctx.lineTo(rocket.x+ROCKETW*0.7, rocket.y+ROCKETH*0.1);
+            ctx.lineTo(rocket.x+ROCKETW*0.8, rocket.y+ROCKETH*0.68);
+            ctx.lineTo(rocket.x+ROCKETW, rocket.y+ROCKETH*0.7);
+            ctx.lineTo(rocket.x+ROCKETW, rocket.y+ROCKETH);
+            ctx.fill();
 
             // Player
-            ctx.fillStyle = "#0F0";
-            ctx.fillRect(player.x, player.y, PLAYERW, PLAYERH);
+            if (player.death <= 0)
+            {
+                ctx.fillStyle = "#0F0";
+                ctx.fillRect(player.x, player.y, PLAYERW, PLAYERH);
+            }
 
             // Cell
             ctx.fillStyle = "#F0F";
             ctx.fillRect(cell.x, cell.y, CELLW, CELLH);
+
+            // Explosions
+            for (let e of explosions) {
+                let r = Math.min(255, 512-512*e.t);
+                let g = Math.max(0, 255-512*e.t);
+                let b = Math.max(0, 192-1024*e.t);
+                let a = Math.min(1, 4-4*e.t);
+                ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
+                let rad = e.r*Math.cos((e.t-0.25)*Math.PI/2);
+                ctx.beginPath();
+                ctx.arc(e.x, e.y, rad, 0, Math.PI*2);
+                ctx.fill();
+            }
 
             drawProps(props);
         }
@@ -245,6 +286,10 @@
         function playerControl(dt, keys) {
             if (keys["Escape"]) {
                 return false;
+            }
+            if (player.death > 0)
+            {
+                return true;
             }
             let thrust = keys["q"] || keys["Q"] || keys["w"] || keys["W"] || keys["ArrowUp"];
             let left = keys["a"] || keys["A"] || keys["o"] || keys["O"] || keys["ArrowLeft"];
@@ -303,7 +348,7 @@
 
             // Enemy spawn
             enemy.timeToShow -= dt;            
-            if (enemy.timeToShow <= 0) {
+            if (enemy.timeToShow <= 0 && enemy.enemies.length < MAX_ENEMIES) {
                 enemy.timeToShow = 2;
                 let side = Math.random() > 0.5;
                 let e = {
@@ -316,11 +361,20 @@
                 };
                 enemy.enemies.push(e);
                 enemy.score += 30;
-                enemy.health += 3;
+                enemy.health += 1;
             }
 
-            // Enemies
-            for (let i = 0; i < enemy.enemies.length; i++) {
+                // Explosions
+                for (let i = 0; i < explosions.length; i++) {
+                    let e = explosions[i];
+                    e.t += dt;
+                    if (e.t > 1) {
+                        explosions.splice(i--, 1);
+                    }
+                }
+
+                // Enemies
+                for (let i = 0; i < enemy.enemies.length; i++) {
                 let e = enemy.enemies[i];
                 e.x += dt*e.vx;
                 e.y += dt*e.vy;
@@ -344,6 +398,7 @@
                     }
                 }
                 if (e.health <= 0) {
+                    explosions.push(spawnExplosion(e.x+ENEMYW/2, e.y+ENEMYH/2));
                     enemy.enemies.splice(i, 1);
                     i--;
                     player.score += e.score;
@@ -377,6 +432,7 @@
                     rocket.fuel = Math.min(rocket.fuel + 0.26, 1);
                     if (rocket.fuel >= 1) {
                         for (let e of enemy.enemies) {
+                            explosions.push(spawnExplosion(e.x+ENEMYW/2, e.y+ENEMYH/2));
                             player.score += e.score;
                         }
                         enemy.enemies = [];
@@ -386,7 +442,34 @@
             }
 
 
+            // Shots
+            for (let i = 0; i < shots.length; i++) {
+                let s = shots[i];
+                if (s.time < 0) {
+                    shots.splice(i, 1);
+                    i--;
+                    continue;
+                }
+                s.time += dt;
+                s.vx *= 1.04;
+                let w = s.time * s.time * canvas.width / 2;
+                s.w = w;
+                s.x += s.vx * canvas.width / 6 * dt;
+                if (s.x > canvas.width || s.x + w < 0) {
+                    shots.splice(i, 1);
+                    i--;
+                }
+            }
+
+            if (prevscore != player.score) {
+                scoredomel.textContent = Math.round(player.score);
+            }
+
             // Player
+            if (player.death > 0) {
+                player.death -= dt;
+                return player.death > 0;
+            }
             let prevy = player.y;
             player.x += dt * player.vx;
             player.y += dt * player.vy;
@@ -416,31 +499,12 @@
             }
             for (let e of enemy.enemies) {
                 if (Collide(player.x, player.y, PLAYERW, PLAYERH, e.x, e.y, ENEMYW, ENEMYH) !== null) {
-                    return false;
+                    explosions.push(spawnExplosion(player.x+PLAYERH/2, player.y+PLAYERH/2));
+                    player.death = 4;
+                    player.cell = false;
                 }
             }
 
-            // Shots
-            for (let i = 0; i < shots.length; i++) {
-                let s = shots[i];
-                if (s.time < 0) {
-                    shots.splice(i, 1);
-                    i--;
-                    continue;
-                }
-                s.time += dt;
-                s.vx *= 1.04;
-                let w = s.time * s.time * canvas.width / 2;
-                s.w = w;
-                s.x += s.vx * canvas.width / 6 * dt;
-                if (s.x > canvas.width || s.x + w < 0) {
-                    shots.splice(i, 1);
-                    i--;
-                }
-            }
-            if (prevscore != player.score) {
-                scoredomel.textContent = Math.round(player.score);
-            }
             return true;
         }
 
