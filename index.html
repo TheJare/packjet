@@ -269,9 +269,9 @@
 
             // Explosions
             for (let e of explosions) {
-                let r = Math.min(255, 512-512*e.t);
-                let g = Math.max(0, 255-512*e.t);
-                let b = Math.max(0, 192-1024*e.t);
+                let r = Math.round(Math.min(255, 512-512*e.t));
+                let g = Math.round(Math.max(0, 255-512*e.t));
+                let b = Math.round(Math.max(0, 192-1024*e.t));
                 let a = Math.min(1, 4-4*e.t);
                 ctx.fillStyle = `rgba(${r},${g},${b},${a})`;
                 let rad = e.r*Math.cos((e.t-0.25)*Math.PI/2);
